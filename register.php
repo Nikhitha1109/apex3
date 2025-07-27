@@ -1,36 +1,36 @@
 <?php
+session_start();
 include 'config.php';
 
+$error = "";
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $username = mysqli_real_escape_string($conn, $_POST['username']);
-    $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+    $username = trim($_POST["username"]);
+    $password = trim($_POST["password"]);
+    $hashed = password_hash($password, PASSWORD_DEFAULT);
+    $role = 'editor';
 
-    $check = mysqli_query($conn, "SELECT * FROM users WHERE username='$username'");
-    if (mysqli_num_rows($check) > 0) {
+    $stmt = $conn->prepare("SELECT id FROM users WHERE username = ?");
+    $stmt->bind_param("s", $username);
+    $stmt->execute();
+    $res = $stmt->get_result();
+
+    if ($res->num_rows > 0) {
         $error = "Username already exists.";
     } else {
-        mysqli_query($conn, "INSERT INTO users (username, password) VALUES ('$username', '$password')");
+        $stmt = $conn->prepare("INSERT INTO users (username, password, role) VALUES (?, ?, ?)");
+        $stmt->bind_param("sss", $username, $hashed, $role);
+        $stmt->execute();
         header("Location: login.php");
         exit();
     }
 }
 ?>
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Register</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-<div class="container mt-5">
-    <h2>Register</h2>
-    <?php if (isset($error)) echo "<p class='text-danger'>$error</p>"; ?>
-    <form method="post">
-        <input type="text" name="username" class="form-control mb-2" placeholder="Username" required>
-        <input type="password" name="password" class="form-control mb-2" placeholder="Password" required>
-        <button class="btn btn-secondary">Register</button>
-        <a href="login.php" class="btn btn-link">Login</a>
-    </form>
-</div>
-</body>
-</html>
+
+<h2>Register</h2>
+<form method="post">
+    <?php if ($error) echo "<p style='color:red;'>$error</p>"; ?>
+    Username: <input type="text" name="username"><br><br>
+    Password: <input type="password" name="password"><br><br>
+    <input type="submit" value="Register">
+</form>
+<a href="login.php">Back to Login</a>

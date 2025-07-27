@@ -2,31 +2,27 @@
 session_start();
 include 'config.php';
 
-// User must be logged in to delete posts
-if (!isset($_SESSION['username'])) {
+if (!isset($_SESSION['username']) || !isset($_GET['id'])) {
     header('Location: login.php');
     exit();
 }
 
-// Get the post ID from URL
-if (isset($_GET['id']) && is_numeric($_GET['id'])) {
-    $id = intval($_GET['id']);
+$id = intval($_GET['id']);
 
-    // Optional: Only allow post owner to delete (if posts have a `username` or `user_id` field)
-    // $username = $_SESSION['username'];
-    // $check = mysqli_query($conn, "SELECT * FROM posts WHERE id=$id AND username='$username'");
-    // if (mysqli_num_rows($check) == 0) {
-    //     die("Unauthorized or post not found.");
-    // }
+// Check ownership or admin role
+$stmt = $conn->prepare("SELECT user_id FROM posts WHERE id = ?");
+$stmt->bind_param("i", $id);
+$stmt->execute();
+$res = $stmt->get_result();
+$row = $res->fetch_assoc();
 
-    // Delete post
-    $sql = "DELETE FROM posts WHERE id=$id";
-    if (mysqli_query($conn, $sql)) {
-        header("Location: index.php?msg=deleted");
-    } else {
-        echo "Error deleting post: " . mysqli_error($conn);
-    }
-} else {
-    echo "Invalid ID.";
+if (!$row || ($_SESSION['id'] != $row['user_id'] && $_SESSION['role'] != 'admin')) {
+    die("Unauthorized access.");
 }
-?>
+
+$stmt = $conn->prepare("DELETE FROM posts WHERE id = ?");
+$stmt->bind_param("i", $id);
+$stmt->execute();
+
+header("Location: index.php");
+exit();

@@ -1,12 +1,13 @@
 <?php
-$host = "localhost";
-$user = "root";
-$pass = ""; // Leave empty if you're using XAMPP with no password
-$dbname = "blog";
+$servername = "localhost";
+$username = "root";
+$password = "";
+$dbname = "apex3_db";
 
-$conn = mysqli_connect($host, $user, $pass, $dbname);
+$conn = new mysqli($servername, $username, $password, $dbname);
 
-if (!$conn) {
-    die("Connection failed: " . mysqli_connect_error());
+// Check connection
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
 }
 ?>

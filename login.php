@@ -1,39 +1,36 @@
 <?php
-session_start(); // ✅ VERY IMPORTANT
+session_start();
 include 'config.php';
 
+$error = "";
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $username = $_POST['username'];
-    $password = $_POST['password'];
-    $sql = "SELECT * FROM users WHERE username='$username'";
-    $result = mysqli_query($conn, $sql);
-    $user = mysqli_fetch_assoc($result);
+    $username = trim($_POST["username"]);
+    $password = trim($_POST["password"]);
 
-    if ($user && password_verify($password, $user['password'])) {
-        $_SESSION['username'] = $username;
-        header("Location: index.php");
-        exit();
-    } else {
-        $error = "Invalid login.";
+    $stmt = $conn->prepare("SELECT id, username, password, role FROM users WHERE username=?");
+    $stmt->bind_param("s", $username);
+    $stmt->execute();
+    $res = $stmt->get_result();
+
+    if ($res->num_rows === 1) {
+        $user = $res->fetch_assoc();
+        if (password_verify($password, $user['password'])) {
+            $_SESSION['id'] = $user['id'];
+            $_SESSION['username'] = $user['username'];
+            $_SESSION['role'] = $user['role'];
+            header("Location: index.php");
+            exit();
+        }
     }
+    $error = "Invalid username or password.";
 }
 ?>
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Login</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-<div class="container mt-5">
-    <h2>Login</h2>
-    <?php if (isset($error)) echo "<p class='text-danger'>$error</p>"; ?>
-    <form method="post">
-        <input type="text" name="username" class="form-control mb-2" placeholder="Username" required>
-        <input type="password" name="password" class="form-control mb-2" placeholder="Password" required>
-        <button class="btn btn-primary">Login</button>
-        <a href="register.php" class="btn btn-link">Register</a>
-    </form>
-</div>
-</body>
-</html>
+
+<h2>Login</h2>
+<form method="post">
+    <?php if ($error) echo "<p style='color:red;'>$error</p>"; ?>
+    Username: <input type="text" name="username"><br><br>
+    Password: <input type="password" name="password"><br><br>
+    <input type="submit" value="Login">
+</form>
+<a href="register.php">Register</a>

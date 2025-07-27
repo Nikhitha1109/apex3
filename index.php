@@ -2,88 +2,46 @@
 session_start();
 include 'config.php';
 
-// Pagination settings
-$limit = 5;
-$page = isset($_GET['page']) ? intval($_GET['page']) : 1;
-$offset = ($page - 1) * $limit;
-
-// Search logic
-$search = "";
-$searchSql = "";
-if (isset($_GET['search']) && !empty(trim($_GET['search']))) {
-    $search = mysqli_real_escape_string($conn, $_GET['search']);
-    $searchSql = "WHERE title LIKE '%$search%' OR content LIKE '%$search%'";
+if (!isset($_SESSION['username'])) {
+    header('Location: login.php');
+    exit();
 }
 
-// Count total posts
-$countResult = mysqli_query($conn, "SELECT COUNT(*) AS total FROM posts $searchSql");
-$totalPosts = mysqli_fetch_assoc($countResult)['total'];
-$totalPages = ceil($totalPosts / $limit);
-
-// Fetch posts
-$sql = "SELECT * FROM posts $searchSql ORDER BY created_at DESC LIMIT $limit OFFSET $offset";
-$result = mysqli_query($conn, $sql);
+$search = '';
+if (isset($_GET['search'])) {
+    $search = htmlspecialchars($_GET['search']);
+    $stmt = $conn->prepare("SELECT * FROM posts WHERE title LIKE ? OR content LIKE ? ORDER BY created_at DESC");
+    $like = "%$search%";
+    $stmt->bind_param("ss", $like, $like);
+} else {
+    $stmt = $conn->prepare("SELECT * FROM posts ORDER BY created_at DESC");
+}
+$stmt->execute();
+$result = $stmt->get_result();
 ?>
 
 <!DOCTYPE html>
 <html>
 <head>
-    <title>My Blog</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Blog Posts</title>
 </head>
 <body>
-<div class="container mt-5">
-
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2>My Blog</h2>
-        <?php if (isset($_SESSION['username'])): ?>
-            <div>
-                <span class="me-2">Welcome, <?= $_SESSION['username'] ?></span>
-                <a href="create.php" class="btn btn-success btn-sm">New Post</a>
-                <a href="logout.php" class="btn btn-outline-danger btn-sm">Logout</a>
-            </div>
-        <?php else: ?>
-            <a href="login.php" class="btn btn-primary btn-sm">Login</a>
-        <?php endif; ?>
-    </div>
-
-    <form method="get" class="mb-3">
-        <div class="input-group">
-            <input type="text" name="search" class="form-control" placeholder="Search posts..." value="<?= htmlspecialchars($search) ?>">
-            <button class="btn btn-secondary">Search</button>
-        </div>
+    <h2>Welcome, <?php echo $_SESSION['username']; ?>!</h2>
+    <form method="GET" action="">
+        <input type="text" name="search" placeholder="Search..." value="<?php echo $search; ?>">
+        <button type="submit">Search</button>
     </form>
-
-    <?php while ($post = mysqli_fetch_assoc($result)): ?>
-        <div class="card mb-3">
-            <div class="card-body">
-                <h4><?= htmlspecialchars($post['title']) ?></h4>
-                <p><?= nl2br(htmlspecialchars(substr($post['content'], 0, 200))) ?>...</p>
-                <small class="text-muted">Posted on <?= $post['created_at'] ?></small>
-                <div class="mt-2">
-                    <?php if (isset($_SESSION['username'])): ?>
-                        <a href="edit.php?id=<?= $post['id'] ?>" class="btn btn-sm btn-warning">Edit</a>
-                        <a href="delete.php?id=<?= $post['id'] ?>" class="btn btn-sm btn-danger"
-                           onclick="return confirm('Are you sure you want to delete this post?');">Delete</a>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
+    <a href="create.php">Create New Post</a> | 
+    <a href="logout.php">Logout</a>
+    <hr>
+    <?php while ($row = $result->fetch_assoc()): ?>
+        <h3><?php echo htmlspecialchars($row['title']); ?></h3>
+        <p><?php echo nl2br(htmlspecialchars($row['content'])); ?></p>
+        <?php if ($_SESSION['id'] == $row['user_id'] || $_SESSION['role'] == 'admin'): ?>
+            <a href="edit.php?id=<?php echo $row['id']; ?>">Edit</a> | 
+            <a href="delete.php?id=<?php echo $row['id']; ?>" onclick="return confirm('Are you sure?')">Delete</a>
+        <?php endif; ?>
+        <hr>
     <?php endwhile; ?>
-
-    <!-- Pagination -->
-    <?php if ($totalPages > 1): ?>
-        <nav>
-            <ul class="pagination">
-                <?php for ($p = 1; $p <= $totalPages; $p++): ?>
-                    <li class="page-item <?= ($p == $page) ? 'active' : '' ?>">
-                        <a class="page-link" href="?page=<?= $p ?>&search=<?= urlencode($search) ?>"><?= $p ?></a>
-                    </li>
-                <?php endfor; ?>
-            </ul>
-        </nav>
-    <?php endif; ?>
-
-</div>
 </body>
 </html>
